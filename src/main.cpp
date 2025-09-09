@@ -7,6 +7,8 @@
 #include "main.h"
 
 #include "addrman.h"
+#include "zisk/consensus_validation.h"
+#include "zisk/proof_verifier.h"
 #include "alert.h"
 #include "arith_uint256.h"
 #include "chainparams.h"
@@ -1433,6 +1435,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
         // Orchard zk-SNARK proofs are checked by orchard::AuthValidator::Batch.
 
+        // ZisK STARK proofs are checked here
+        if (tx.GetZiskSpendsCount() > 0 || tx.GetZiskOutputsCount() > 0) {
+            ZiskProofVerifier ziskVerifier = ZiskProofVerifier::Strict();
+            if (!Consensus::VerifyZiskProofs(tx, state, ziskVerifier, 100)) {
+                return false;
+            }
+        }
+
         return true;
     }
 }
@@ -1878,6 +1888,11 @@ bool AcceptToMemoryPool(
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
         if (!Consensus::CheckTxShieldedInputs(tx, state, view, 0)) {
+            return false;
+        }
+
+        // Are the ZisK inputs' requirements met?
+        if (!Consensus::CheckTxZiskInputs(tx, state, view, 0)) {
             return false;
         }
 

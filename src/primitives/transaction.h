@@ -26,6 +26,7 @@
 #include <rust/ed25519.h>
 #include <primitives/sapling.h>
 #include <primitives/orchard.h>
+#include "zisk/primitives/zisk_transaction.h"
 
 // Overwinter transaction version group id
 static constexpr uint32_t OVERWINTER_VERSION_GROUP_ID = 0x03C48270;
@@ -60,6 +61,17 @@ static_assert(ZIP225_TX_VERSION >= ZIP225_MIN_TX_VERSION,
     "ZIP225 tx version must not be lower than minimum");
 static_assert(ZIP225_TX_VERSION <= ZIP225_MAX_TX_VERSION,
     "ZIP225 tx version must not be higher than maximum");
+
+// ZisK transaction version group id
+static constexpr uint32_t ZISK_VERSION_GROUP_ID = 0x12345678;
+static_assert(ZISK_VERSION_GROUP_ID != 0, "version group id must be non-zero");
+
+// ZisK transaction version
+static const int32_t ZISK_TX_VERSION = 6;
+static_assert(ZISK_TX_VERSION >= ZISK_MIN_TX_VERSION,
+    "ZisK tx version must not be lower than minimum");
+static_assert(ZISK_TX_VERSION <= ZISK_MAX_TX_VERSION,
+    "ZisK tx version must not be higher than maximum");
 
 // Future transaction version group id
 static constexpr uint32_t ZFUTURE_VERSION_GROUP_ID = 0xFFFFFFFF;
@@ -459,6 +471,7 @@ private:
     std::optional<uint32_t> nConsensusBranchId;
     SaplingBundle saplingBundle;
     OrchardBundle orchardBundle;
+    ZiskBundle ziskBundle;
 
     /** Memory only. */
     const WTxId wtxid;
@@ -482,6 +495,8 @@ public:
     static const int32_t SAPLING_MAX_CURRENT_VERSION = 4;
     static const int32_t NU5_MIN_CURRENT_VERSION = 4;
     static const int32_t NU5_MAX_CURRENT_VERSION = 5;
+    static const int32_t ZISK_MIN_CURRENT_VERSION = 6;
+    static const int32_t ZISK_MAX_CURRENT_VERSION = 6;
 
     static_assert(SPROUT_MIN_CURRENT_VERSION >= SPROUT_MIN_TX_VERSION,
                   "standard rule for tx version should be consistent with network rule");
@@ -565,6 +580,11 @@ public:
             nVersionGroupId == ZIP225_VERSION_GROUP_ID &&
             nVersion == ZIP225_TX_VERSION;
 
+        bool isZiskV6 =
+            fOverwintered &&
+            nVersionGroupId == ZISK_VERSION_GROUP_ID &&
+            nVersion == ZISK_TX_VERSION;
+
         // It is not possible to make the transaction's serialized form vary on
         // a per-enabled-feature basis. The approach here is that all
         // serialization rules for not-yet-released features must be
@@ -575,7 +595,7 @@ public:
             nVersionGroupId == ZFUTURE_VERSION_GROUP_ID &&
             nVersion == ZFUTURE_TX_VERSION;
 
-        if (fOverwintered && !(isOverwinterV3 || isSaplingV4 || isZip225V5 || isFuture)) {
+        if (fOverwintered && !(isOverwinterV3 || isSaplingV4 || isZip225V5 || isZiskV6 || isFuture)) {
             throw std::ios_base::failure("Unknown transaction format");
         }
 
@@ -601,6 +621,31 @@ public:
 
             // Orchard Transaction Fields
             READWRITE(orchardBundle);
+        } else if (isZiskV6) {
+            // Common Transaction Fields (plus version bytes above)
+            if (ser_action.ForRead()) {
+                uint32_t consensusBranchId;
+                READWRITE(consensusBranchId);
+                *const_cast<std::optional<uint32_t>*>(&nConsensusBranchId) = consensusBranchId;
+            } else {
+                uint32_t consensusBranchId = nConsensusBranchId.value();
+                READWRITE(consensusBranchId);
+            }
+            READWRITE(*const_cast<uint32_t*>(&nLockTime));
+            READWRITE(*const_cast<uint32_t*>(&nExpiryHeight));
+
+            // Transparent Transaction Fields
+            READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
+            READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
+
+            // Sapling Transaction Fields
+            READWRITE(saplingBundle);
+
+            // Orchard Transaction Fields
+            READWRITE(orchardBundle);
+
+            // ZisK Transaction Fields
+            READWRITE(ziskBundle);
         } else {
             // Legacy transaction formats
             READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
@@ -689,6 +734,14 @@ public:
         return saplingBundle.GetOutputsCount();
     }
 
+    size_t GetZiskSpendsCount() const {
+        return ziskBundle.GetSpendsCount();
+    }
+
+    size_t GetZiskOutputsCount() const {
+        return ziskBundle.GetOutputsCount();
+    }
+
     const rust::Vec<sapling::Spend> GetSaplingSpends() const {
         return saplingBundle.GetDetails().spends();
     }
@@ -705,6 +758,13 @@ public:
     }
 
     /**
+     * Returns the ZisK value balance for the transaction.
+     */
+    CAmount GetValueBalanceZisk() const {
+        return ziskBundle.GetValueBalance();
+    }
+
+    /**
      * Returns the Sapling bundle for the transaction.
      */
     const SaplingBundle& GetSaplingBundle() const {
@@ -716,6 +776,13 @@ public:
      */
     const OrchardBundle& GetOrchardBundle() const {
         return orchardBundle;
+    }
+
+    /**
+     * Returns the ZisK bundle for the transaction.
+     */
+    const ZiskBundle& GetZiskBundle() const {
+        return ziskBundle;
     }
 
     /*
@@ -778,6 +845,7 @@ struct CMutableTransaction
     uint32_t nExpiryHeight{0};
     SaplingBundle saplingBundle;
     OrchardBundle orchardBundle;
+    ZiskBundle ziskBundle;
     std::vector<JSDescription> vJoinSplit;
     ed25519::VerificationKey joinSplitPubKey;
     ed25519::Signature joinSplitSig;
@@ -820,11 +888,15 @@ struct CMutableTransaction
             fOverwintered &&
             nVersionGroupId == ZIP225_VERSION_GROUP_ID &&
             nVersion == ZIP225_TX_VERSION;
+        bool isZiskV6 =
+            fOverwintered &&
+            nVersionGroupId == ZISK_VERSION_GROUP_ID &&
+            nVersion == ZISK_TX_VERSION;
         bool isFuture =
             fOverwintered &&
             nVersionGroupId == ZFUTURE_VERSION_GROUP_ID &&
             nVersion == ZFUTURE_TX_VERSION;
-        if (fOverwintered && !(isOverwinterV3 || isSaplingV4 || isZip225V5 || isFuture)) {
+        if (fOverwintered && !(isOverwinterV3 || isSaplingV4 || isZip225V5 || isZiskV6 || isFuture)) {
             throw std::ios_base::failure("Unknown transaction format");
         }
 
@@ -850,6 +922,31 @@ struct CMutableTransaction
 
             // Orchard Transaction Fields
             READWRITE(orchardBundle);
+        } else if (isZiskV6) {
+            // Common Transaction Fields (plus version bytes above)
+            if (ser_action.ForRead()) {
+                uint32_t consensusBranchId;
+                READWRITE(consensusBranchId);
+                nConsensusBranchId = consensusBranchId;
+            } else {
+                uint32_t consensusBranchId = nConsensusBranchId.value();
+                READWRITE(consensusBranchId);
+            }
+            READWRITE(nLockTime);
+            READWRITE(nExpiryHeight);
+
+            // Transparent Transaction Fields
+            READWRITE(vin);
+            READWRITE(vout);
+
+            // Sapling Transaction Fields
+            READWRITE(saplingBundle);
+
+            // Orchard Transaction Fields
+            READWRITE(orchardBundle);
+
+            // ZisK Transaction Fields
+            READWRITE(ziskBundle);
         } else {
             // Legacy transaction formats
             READWRITE(vin);
