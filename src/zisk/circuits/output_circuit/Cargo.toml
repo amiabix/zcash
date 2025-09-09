@@ -1,7 +1,0 @@
-[package]
-name = "output_circuit"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-zisk-sdk = "0.1.0"
