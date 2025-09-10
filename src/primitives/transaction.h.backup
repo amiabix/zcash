@@ -26,7 +26,7 @@
 #include <rust/ed25519.h>
 #include <primitives/sapling.h>
 #include <primitives/orchard.h>
-// #include "zisk/primitives/zisk_transaction.h"
+#include "zisk/primitives/zisk_transaction.h"
 
 // Overwinter transaction version group id
 static constexpr uint32_t OVERWINTER_VERSION_GROUP_ID = 0x03C48270;

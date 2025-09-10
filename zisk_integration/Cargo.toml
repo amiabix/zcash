@@ -1,10 +1,95 @@
 [package]
-name = "zcash_validator"
+name = "zisk-zcash-validator"
 version = "0.1.0"
 edition = "2021"
-default-run = "zcash_validator"
+authors = ["ZisK-Zcash Integration Team"]
+description = "Professional Zcash transaction validation on ZisK zkVM with STARK proofs"
+license = "MIT"
+repository = "https://github.com/amiabix/zcash"
+keywords = ["zcash", "zisk", "zkvm", "stark", "privacy", "cryptocurrency"]
+categories = ["cryptography", "blockchain"]
+
+[features]
+default = []
+host = ["reqwest", "tokio"]
+zkvm = []
+rpc_server = ["axum", "tower", "tower-http", "tokio"]
+
+[lib]
+name = "zisk_zcash_validator"
+path = "src/lib.rs"
+
+[[bin]]
+name = "single_validator"
+path = "src/bin/single_validator.rs"
+
+[[bin]]
+name = "batch_validator"
+path = "src/bin/batch_validator.rs"
+
+[[bin]]
+name = "block_validator"
+path = "src/bin/block_validator.rs"
+
+[[bin]]
+name = "minimal_validator"
+path = "src/bin/minimal_validator.rs"
+
+[[bin]]
+name = "static_validator"
+path = "src/bin/static_validator.rs"
 
 [dependencies]
-byteorder = "1.5.0"
-sha2 = "0.10.8"
+# Core dependencies
 ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Cryptography
+sha2 = "0.10"
+blake2b_simd = "1.0"
+secp256k1 = { version = "0.28", default-features = false, features = ["alloc"] }
+
+# Serialization
+byteorder = "1.5"
+
+# Utilities
+hex = "0.4"
+rust_decimal = "1.32"
+base64 = "0.21"
+
+# HTTP client (for host-side RPC calls)
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], optional = true }
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+# HTTP server (for RPC interface)
+axum = { version = "0.7", optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["cors", "trace"], optional = true }
+
+# Zcash-specific (if available)
+# zcash_primitives = "0.1"  # Uncomment when available
+# zcash_proofs = "0.1"      # Uncomment when available
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.0"
+tempfile = "3.0"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.bench]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[[bench]]
+name = "validation_benchmarks"
+harness = false
