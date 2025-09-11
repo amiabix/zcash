@@ -28,23 +28,24 @@ pub mod proofs;
 // State management
 pub mod state;
 
-// Bridge modules for node integration - temporarily disabled for no_std
+// Bridge modules for node integration - disabled for no_std compatibility
 // pub mod bridge;
 
-// RPC modules for external interfaces - temporarily disabled for no_std
+// RPC modules for external interfaces - disabled for no_std compatibility  
 // pub mod rpc;
 
-// Verification modules - temporarily disabled
-// pub mod verification;
+// Verification modules
+pub mod verification;
 
-// Integration modules - temporarily disabled  
+// Integration modules - disabled for no_std compatibility
 // pub mod integration;
 
 // Utility modules
 pub mod utils;
 
 // Conversion modules
-pub mod conversion;
+// pub mod conversion; // Removed - conversion logic moved inline
+
 
 // Legacy modules (from original implementation)
 pub mod secp_verify;
@@ -56,6 +57,8 @@ pub mod smt;
 
 pub use core::*;
 pub use error::*;
+use crate::parsing::ZcashTransaction;
+use crate::proofs::{StarkProof, ProofMetadata};
 
 /// Main validator for Zcash transactions on ZisK
 pub struct ZcashValidator {
@@ -80,6 +83,9 @@ impl ZcashValidator {
             orchard_balance: 0,
             nullifiers_valid: true,
             commitments_valid: true,
+            signatures_valid: true,
+            zk_proofs_valid: true,
+            new_state_root: [0u8; 32],
             warnings: Vec::new(),
             errors: Vec::new(),
         };
@@ -100,12 +106,15 @@ impl ZcashValidator {
     pub fn validate_batch(&self, transactions: &[ZcashTransaction]) -> Result<BatchValidationResult, ZcashValidationError> {
         let mut batch_result = BatchValidationResult {
             total_transactions: transactions.len(),
+            transaction_count: transactions.len(),
             valid_transactions: 0,
             invalid_transactions: 0,
             batch_valid: true,
             total_input_value: 0,
             total_output_value: 0,
             total_fee: 0,
+            total_fees: 0,
+            new_state_root: [0u8; 32],
             transaction_results: Vec::new(),
             warnings: Vec::new(),
             errors: Vec::new(),

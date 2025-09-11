@@ -6,6 +6,8 @@
 extern crate alloc;
 
 use zisk_zcash_validator::*;
+use zisk_zcash_validator::parsing::ZcashTransaction;
+use zisk_zcash_validator::proofs::StarkProof;
 use ziskos::{read_input, set_output};
 use alloc::vec::Vec;
 use alloc::string::String;

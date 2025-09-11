@@ -2,6 +2,8 @@
 
 use alloc::vec::Vec;
 use alloc::string::String;
+
+#[cfg(feature = "host")]
 use serde::{Deserialize, Serialize};
 
 /// Zcash transaction version
@@ -49,314 +51,240 @@ pub type Anchor = [u8; 32];
 /// Ephemeral key (32 bytes)
 pub type EphemeralKey = [u8; 32];
 
+/// Value commitment (32 bytes)
+pub type ValueCommitment = [u8; 32];
+
+/// State root (32 bytes)
+pub type StateRoot = [u8; 32];
+
 /// Merkle root (32 bytes)
 pub type MerkleRoot = [u8; 32];
 
-/// Zcash transaction structure
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ZcashTransaction {
-    /// Transaction version
-    pub version: TransactionVersion,
-    /// Version group ID
-    pub version_group_id: VersionGroupId,
-    /// Lock time
-    pub lock_time: LockTime,
-    /// Expiry height
-    pub expiry_height: ExpiryHeight,
-    /// Transparent inputs
-    pub transparent_inputs: Vec<TransparentInput>,
-    /// Transparent outputs
-    pub transparent_outputs: Vec<TransparentOutput>,
-    /// Sapling bundle (if present)
-    pub sapling_bundle: Option<SaplingBundle>,
-    /// Orchard bundle (if present)
-    pub orchard_bundle: Option<OrchardBundle>,
+/// UTXO entry for validation
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct UtxoEntry {
+    pub value: Zatoshis,
+    pub script_pubkey: Vec<u8>,
+    pub height: BlockHeight,
+    pub prev_txid: TxHash,
+    pub prev_index: u32,
+    pub merkle_proof: Vec<[u8; 32]>,
+    pub leaf_index: u64,
+    pub spendable: bool,
 }
 
-/// Transparent transaction input
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Transparent input
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct TransparentInput {
-    /// Previous output hash
     pub prevout_hash: TxHash,
-    /// Previous output index
     pub prevout_index: u32,
-    /// Script signature
     pub script_sig: Vec<u8>,
-    /// Sequence number
     pub sequence: Sequence,
 }
 
-/// Transparent transaction output
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Transparent output
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct TransparentOutput {
-    /// Output value in zatoshis
     pub value: Zatoshis,
-    /// Script public key
     pub script_pubkey: Vec<u8>,
 }
 
-/// Sapling bundle
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SaplingBundle {
-    /// Value balance
-    pub value_balance: i64,
-    /// Sapling spends
-    pub spends: Vec<SaplingSpend>,
-    /// Sapling outputs
-    pub outputs: Vec<SaplingOutput>,
-    /// Binding signature
-    pub binding_signature: Signature,
-}
-
-/// Sapling spend
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Sapling spend description
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct SaplingSpend {
-    /// Nullifier
-    pub nullifier: Nullifier,
-    /// Value commitment
-    pub cv: Commitment,
-    /// Anchor
+    pub cv: ValueCommitment,
     pub anchor: Anchor,
-    /// Randomized verification key
-    pub rk: [u8; 32],
-    /// Groth16 proof (192 bytes)
+    pub nullifier: Nullifier,
+    pub rk: PublicKey,
     pub zkproof: Vec<u8>,
-    /// Spend auth signature (64 bytes)
-    pub spend_auth_sig: Vec<u8>,
+    pub spend_auth_sig: Signature,
 }
 
-/// Sapling output
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Sapling output description
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct SaplingOutput {
-    /// Note commitment
+    pub cv: ValueCommitment,
     pub cmu: Commitment,
-    /// Value commitment
-    pub cv: Commitment,
-    /// Ephemeral public key
     pub ephemeral_key: EphemeralKey,
-    /// Encrypted ciphertext
     pub enc_ciphertext: Vec<u8>,
-    /// Out ciphertext
     pub out_ciphertext: Vec<u8>,
-    /// Proof
     pub proof: Vec<u8>,
 }
 
-/// Orchard bundle
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrchardBundle {
-    /// Actions
-    pub actions: Vec<OrchardAction>,
-    /// Value commitment
-    pub value_commitment: Commitment,
-    /// Binding signature
+/// Sapling bundle
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct SaplingBundle {
+    pub value_balance: i64,
+    pub spends: Vec<SaplingSpend>,
+    pub outputs: Vec<SaplingOutput>,
     pub binding_signature: Signature,
 }
 
 /// Orchard action
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct OrchardAction {
-    /// Nullifier
     pub nullifier: Nullifier,
-    /// Value commitment
-    pub cv: Commitment,
-    /// Note commitment
     pub cmu: Commitment,
-    /// Ephemeral key
+    pub cv: ValueCommitment,
+    pub cv_net: ValueCommitment,
     pub ephemeral_key: EphemeralKey,
-    /// Encrypted ciphertext
     pub enc_ciphertext: Vec<u8>,
-    /// Out ciphertext
     pub out_ciphertext: Vec<u8>,
-    /// Proof
     pub proof: Vec<u8>,
+    pub authorization: Signature,
+}
+
+/// Orchard bundle
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct OrchardBundle {
+    pub actions: Vec<OrchardAction>,
+    pub value_commitment: ValueCommitment,
+    pub binding_signature: Signature,
+}
+
+/// Complete Zcash transaction
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+#[derive(Default)]
+pub struct CompleteZcashTransaction {
+    pub version: TransactionVersion,
+    pub version_group_id: VersionGroupId,
+    pub lock_time: LockTime,
+    pub expiry_height: ExpiryHeight,
+    pub transparent_inputs: Vec<TransparentInput>,
+    pub transparent_outputs: Vec<TransparentOutput>,
+    pub sapling_bundle: Option<SaplingBundle>,
+    pub orchard_bundle: Option<OrchardBundle>,
+    pub tx_hash: TxHash,
+}
+
+/// Validation result
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub total_input_value: Zatoshis,
+    pub total_output_value: Zatoshis,
+    pub fee: Zatoshis,
+    pub transparent_balance: i64,
+    pub sapling_balance: i64,
+    pub orchard_balance: i64,
+    pub nullifiers_valid: bool,
+    pub commitments_valid: bool,
+    pub signatures_valid: bool,
+    pub zk_proofs_valid: bool,
+    pub new_state_root: StateRoot,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+impl Default for ValidationResult {
+    fn default() -> Self {
+        Self {
+            is_valid: true,
+            total_input_value: 0,
+            total_output_value: 0,
+            fee: 0,
+            transparent_balance: 0,
+            sapling_balance: 0,
+            orchard_balance: 0,
+            nullifiers_valid: true,
+            commitments_valid: true,
+            signatures_valid: true,
+            zk_proofs_valid: true,
+            new_state_root: [0u8; 32],
+            warnings: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+}
+
+/// Batch validation result
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct BatchValidationResult {
+    pub batch_valid: bool,
+    pub total_transactions: usize,
+    pub transaction_count: usize,
+    pub valid_transactions: usize,
+    pub invalid_transactions: usize,
+    pub total_input_value: Zatoshis,
+    pub total_output_value: Zatoshis,
+    pub total_fee: Zatoshis,
+    pub total_fees: Zatoshis,
+    pub new_state_root: StateRoot,
+    pub transaction_results: Vec<ValidationResult>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+/// Block validation result
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
+pub struct BlockValidationResult {
+    pub block_hash: TxHash,
+    pub block_height: BlockHeight,
+    pub transaction_count: usize,
+    pub valid_transactions: usize,
+    pub invalid_transactions: usize,
+    pub block_valid: bool,
+    pub total_input_value: Zatoshis,
+    pub total_output_value: Zatoshis,
+    pub total_fees: Zatoshis,
+    pub new_state_root: StateRoot,
+    pub transaction_results: Vec<ValidationResult>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 /// Validation configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct ValidationConfig {
-    /// Maximum transaction size in bytes
-    pub max_tx_size: usize,
-    /// Maximum number of inputs
-    pub max_inputs: usize,
-    /// Maximum number of outputs
-    pub max_outputs: usize,
-    /// Maximum fee in zatoshis
-    pub max_fee: Zatoshis,
-    /// Minimum fee in zatoshis
-    pub min_fee: Zatoshis,
-    /// Maximum value in zatoshis
-    pub max_value: Zatoshis,
-    /// Enable strict validation
-    pub strict_mode: bool,
-    /// Enable batch processing
-    pub enable_batch: bool,
-    /// Maximum batch size
+    pub check_signatures: bool,
+    pub check_zk_proofs: bool,
+    pub check_consensus_rules: bool,
+    pub max_transaction_size: usize,
     pub max_batch_size: usize,
-    /// Proof generation timeout in seconds
-    pub proof_timeout: u64,
-    /// Memory limit for proof generation in MB
-    pub memory_limit: usize,
+    pub max_inputs: usize,
+    pub max_outputs: usize,
+    pub max_fee: Zatoshis,
+    pub min_fee: Zatoshis,
 }
 
 impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
-            max_tx_size: 100_000, // 100KB
+            check_signatures: true,
+            check_zk_proofs: true,
+            check_consensus_rules: true,
+            max_transaction_size: 100_000, // 100KB
+            max_batch_size: 1000,
             max_inputs: 1000,
             max_outputs: 1000,
-            max_fee: 1_000_000, // 0.01 ZEC
-            min_fee: 1_000, // 0.00001 ZEC
-            max_value: 21_000_000 * 100_000_000, // 21M ZEC
-            strict_mode: true,
-            enable_batch: true,
-            max_batch_size: 100,
-            proof_timeout: 300, // 5 minutes
-            memory_limit: 8192, // 8GB
+            max_fee: 1_000_000, // 1 ZEC in zatoshis
+            min_fee: 1000, // 0.00001 ZEC in zatoshis
         }
     }
-}
-
-/// Single transaction validation result
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ValidationResult {
-    /// Whether the transaction is valid
-    pub is_valid: bool,
-    /// Total input value in zatoshis
-    pub total_input_value: Zatoshis,
-    /// Total output value in zatoshis
-    pub total_output_value: Zatoshis,
-    /// Transaction fee in zatoshis
-    pub fee: Zatoshis,
-    /// Transparent balance change
-    pub transparent_balance: i64,
-    /// Sapling balance change
-    pub sapling_balance: i64,
-    /// Orchard balance change
-    pub orchard_balance: i64,
-    /// Whether nullifiers are valid
-    pub nullifiers_valid: bool,
-    /// Whether commitments are valid
-    pub commitments_valid: bool,
-    /// Validation warnings
-    pub warnings: Vec<String>,
-    /// Validation errors
-    pub errors: Vec<String>,
-}
-
-/// Batch validation result
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BatchValidationResult {
-    /// Total number of transactions
-    pub total_transactions: usize,
-    /// Number of valid transactions
-    pub valid_transactions: usize,
-    /// Number of invalid transactions
-    pub invalid_transactions: usize,
-    /// Whether the entire batch is valid
-    pub batch_valid: bool,
-    /// Total input value across all transactions
-    pub total_input_value: Zatoshis,
-    /// Total output value across all transactions
-    pub total_output_value: Zatoshis,
-    /// Total fee across all transactions
-    pub total_fee: Zatoshis,
-    /// Individual transaction results
-    pub transaction_results: Vec<ValidationResult>,
-    /// Batch-level warnings
-    pub warnings: Vec<String>,
-    /// Batch-level errors
-    pub errors: Vec<String>,
-}
-
-/// STARK proof structure
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StarkProof {
-    /// Proof data
-    pub proof_data: Vec<u8>,
-    /// Compressed proof data
-    pub compressed_proof_data: Vec<u8>,
-    /// Public inputs
-    pub public_inputs: Vec<u64>,
-    /// Proof metadata
-    pub metadata: ProofMetadata,
-}
-
-/// Proof metadata
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProofMetadata {
-    /// Proof ID
-    pub proof_id: String,
-    /// Generation timestamp
-    pub timestamp: u64,
-    /// RISC-V cycles executed
-    pub riscv_cycles: u64,
-    /// Memory usage in bytes
-    pub memory_usage: usize,
-    /// Proof size in bytes
-    pub proof_size: usize,
-    /// Compressed proof size in bytes
-    pub compressed_size: usize,
-    /// Generation time in microseconds
-    pub generation_time_us: u64,
-    /// Verification time in microseconds
-    pub verification_time_us: u64,
 }
 
 /// Performance metrics
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "host", derive(Serialize, Deserialize))]
 pub struct PerformanceMetrics {
-    /// Parsing time in microseconds
-    pub parsing_time_us: u64,
-    /// Validation time in microseconds
-    pub validation_time_us: u64,
-    /// Proof generation time in microseconds
-    pub proof_time_us: u64,
-    /// Total execution time in microseconds
-    pub total_time_us: u64,
-    /// Memory usage in bytes
+    pub validation_time_ms: u64,
+    pub parsing_time_ms: u64,
+    pub signature_verification_time_ms: u64,
+    pub zk_proof_verification_time_ms: u64,
+    pub state_update_time_ms: u64,
+    pub total_time_ms: u64,
     pub memory_usage_bytes: usize,
-    /// RISC-V cycles executed
-    pub riscv_cycles: u64,
-    /// Proof size in bytes
-    pub proof_size_bytes: usize,
-}
-
-/// Complete Zcash transaction with all components
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CompleteZcashTransaction {
-    /// Transaction version (4 or 5)
-    pub version: TransactionVersion,
-    /// Version group ID (for v5)
-    pub version_group_id: Option<VersionGroupId>,
-    /// Lock time
-    pub lock_time: LockTime,
-    /// Expiry height (for v5)
-    pub expiry_height: Option<ExpiryHeight>,
-    /// Transparent inputs
-    pub transparent_inputs: Vec<TransparentInput>,
-    /// Transparent outputs
-    pub transparent_outputs: Vec<TransparentOutput>,
-    /// Sapling bundle (if present)
-    pub sapling_bundle: Option<SaplingBundle>,
-    /// Orchard bundle (if present)
-    pub orchard_bundle: Option<OrchardBundle>,
-    /// Transaction hash (computed)
-    pub tx_hash: TxHash,
-}
-
-impl Default for CompleteZcashTransaction {
-    fn default() -> Self {
-        Self {
-            version: 4,
-            version_group_id: None,
-            lock_time: 0,
-            expiry_height: None,
-            transparent_inputs: Vec::new(),
-            transparent_outputs: Vec::new(),
-            sapling_bundle: None,
-            orchard_bundle: None,
-            tx_hash: [0u8; 32],
-        }
-    }
 }

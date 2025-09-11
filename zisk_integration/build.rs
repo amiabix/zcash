@@ -3,10 +3,13 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    
-    // Create a custom linker script for ZisK
-    let linker_script = r#"
+    // Only generate linker script for ZisK target
+    let target = env::var("TARGET").unwrap();
+    if target == "riscv64ima-zisk-zkvm-elf" {
+        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+        
+        // Create a custom linker script for ZisK
+        let linker_script = r#"
 MEMORY
 {
     RAM : ORIGIN = 0xa0000000, LENGTH = 0x20000000
@@ -38,8 +41,9 @@ SECTIONS
     }
 }
 "#;
-    
-    fs::write(out_dir.join("linker.ld"), linker_script).unwrap();
-    
-    println!("cargo:rustc-link-arg=-T{}", out_dir.join("linker.ld").display());
+        
+        fs::write(out_dir.join("linker.ld"), linker_script).unwrap();
+        
+        println!("cargo:rustc-link-arg=-T{}", out_dir.join("linker.ld").display());
+    }
 }

@@ -2,6 +2,7 @@
 
 use crate::core::*;
 use crate::error::*;
+use crate::parsing::{ZcashTransaction, SaplingBundle, OrchardBundle};
 use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::format;

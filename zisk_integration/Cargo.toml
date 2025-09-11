@@ -10,9 +10,9 @@ keywords = ["zcash", "zisk", "zkvm", "stark", "privacy", "cryptocurrency"]
 categories = ["cryptography", "blockchain"]
 
 [features]
-default = []
-host = ["reqwest", "tokio"]
-zkvm = []
+default = ["host"]
+host = ["reqwest", "tokio", "serde", "serde_json", "thiserror", "anyhow", "rust_decimal", "base64"]
+zkvm = ["ziskos"]
 rpc_server = ["axum", "tower", "tower-http", "tokio"]
 
 [lib]
@@ -36,29 +36,43 @@ name = "minimal_validator"
 path = "src/bin/minimal_validator.rs"
 
 [[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
 name = "static_validator"
 path = "src/bin/static_validator.rs"
 
+# Removed demo binaries
+
+# Removed demo binaries
+
+# Removed fetch_mainnet_data binary
+
+# Removed fake test binaries
+
 [dependencies]
 # Core dependencies
-# ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git" }  # Temporarily disabled for ARM64 compatibility
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-anyhow = "1.0"
+ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+thiserror = { version = "1.0", optional = true }
+anyhow = { version = "1.0", optional = true }
 
 # Cryptography
 sha2 = "0.10"
 blake2b_simd = "1.0"
-secp256k1 = { version = "0.28", default-features = false, features = ["alloc"] }
+# secp256k1 = { version = "0.28", default-features = false, features = ["alloc"] }  # Temporarily disabled for RISC-V compatibility
+k256 = { version = "0.14.0-pre.10", features = ["ecdsa", "sha256"] }  # Pure Rust implementation
+signature = "3.0.0-rc.3"  # Required for k256
 
 # Serialization
 byteorder = "1.5"
 
 # Utilities
 hex = "0.4"
-rust_decimal = "1.32"
-base64 = "0.21"
+rust_decimal = { version = "1.32", optional = true }
+base64 = { version = "0.21", optional = true }
 
 # HTTP client (for host-side RPC calls)
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], optional = true }

@@ -5,8 +5,9 @@
 
 use crate::core::*;
 use crate::error::*;
-use alloc::vec::Vec;
-use alloc::string::String;
+use alloc::{vec, vec::Vec};
+use alloc::string::{String, ToString};
+use alloc::format;
 
 /// Sapling proof verification result
 #[derive(Debug, Clone)]

@@ -5,9 +5,10 @@
 
 use crate::core::*;
 use crate::error::*;
-use crate::bridge::{NodeBridge, UtxoProvider};
+// Bridge modules disabled for no_std compatibility
+// use crate::bridge::{NodeBridge, UtxoProvider};
 // use crate::verification::sapling_verifier::SaplingVerifier; // Temporarily disabled
-use crate::state::state_synchronizer::StateSynchronizer;
+// use crate::state::state_synchronizer::StateSynchronizer;
 use alloc::vec::Vec;
 use alloc::string::String;
 

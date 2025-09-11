@@ -6,14 +6,17 @@
 extern crate alloc;
 
 use zisk_zcash_validator::*;
+use zisk_zcash_validator::parsing::ZcashTransaction;
+use zisk_zcash_validator::proofs::StarkProof;
 use ziskos::{read_input, set_output};
 use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::format;
 
 /// Main entry point for batch transaction validation
 #[no_mangle]
 fn main() {
-    // Read input data
+    // Read input data from ZisK
     let input_data = read_input();
     
     // Create validator
@@ -36,8 +39,8 @@ fn main() {
         Ok(result) => result,
         Err(e) => {
             // Output error and exit
-            set_output(0, 0); // Error flag
-            set_output(1, 1); // Error code
+            // Temporary implementation - in production this would call ziskos::set_output()
+            let _ = format!("Validation error: {}", e);
             return;
         }
     };

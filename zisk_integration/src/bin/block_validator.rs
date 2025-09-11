@@ -6,9 +6,12 @@
 extern crate alloc;
 
 use zisk_zcash_validator::*;
+use zisk_zcash_validator::parsing::ZcashTransaction;
+use zisk_zcash_validator::proofs::StarkProof;
 use ziskos::{read_input, set_output};
-use alloc::vec::Vec;
-use alloc::string::String;
+use alloc::{vec, vec::Vec};
+use alloc::string::{String, ToString};
+use alloc::format;
 
 /// Main entry point for block transaction validation
 #[no_mangle]
@@ -26,8 +29,8 @@ fn main() {
     
     // Validate all transactions in block
     let mut block_result = BlockValidationResult {
-        block_height,
         block_hash,
+        block_height,
         transaction_count: transactions.len(),
         valid_transactions: 0,
         invalid_transactions: 0,
@@ -35,6 +38,7 @@ fn main() {
         total_input_value: 0,
         total_output_value: 0,
         total_fees: 0,
+        new_state_root: [0u8; 32],
         transaction_results: Vec::new(),
         warnings: Vec::new(),
         errors: Vec::new(),

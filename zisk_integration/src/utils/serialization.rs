@@ -1,6 +1,8 @@
 //! Serialization utilities
 
 use crate::core::*;
+use crate::parsing::ZcashTransaction;
+use crate::proofs::StarkProof;
 use crate::error::*;
 use crate::parse_error;
 use alloc::vec::Vec;
@@ -24,9 +26,9 @@ impl Serializer {
         let mut json = String::new();
         json.push_str("{\n");
         json.push_str(&format!("  \"version\": {},\n", transaction.version));
-        json.push_str(&format!("  \"version_group_id\": \"0x{:x}\",\n", transaction.version_group_id));
+        json.push_str(&format!("  \"version_group_id\": \"0x{:x}\",\n", transaction.version_group_id.unwrap_or(0)));
         json.push_str(&format!("  \"lock_time\": {},\n", transaction.lock_time));
-        json.push_str(&format!("  \"expiry_height\": {},\n", transaction.expiry_height));
+        json.push_str(&format!("  \"expiry_height\": {},\n", transaction.expiry_height.unwrap_or(0)));
         json.push_str(&format!("  \"transparent_inputs\": {},\n", transaction.transparent_inputs.len()));
         json.push_str(&format!("  \"transparent_outputs\": {},\n", transaction.transparent_outputs.len()));
         json.push_str(&format!("  \"sapling_bundle\": {},\n", transaction.sapling_bundle.is_some()));
@@ -60,13 +62,13 @@ impl Serializer {
         // In real implementation would use proper JSON serialization
         let mut json = String::new();
         json.push_str("{\n");
-        json.push_str(&format!("  \"total_transactions\": {},\n", result.total_transactions));
+        json.push_str(&format!("  \"total_transactions\": {},\n", result.transaction_count));
         json.push_str(&format!("  \"valid_transactions\": {},\n", result.valid_transactions));
         json.push_str(&format!("  \"invalid_transactions\": {},\n", result.invalid_transactions));
         json.push_str(&format!("  \"batch_valid\": {},\n", result.batch_valid));
         json.push_str(&format!("  \"total_input_value\": {},\n", result.total_input_value));
         json.push_str(&format!("  \"total_output_value\": {},\n", result.total_output_value));
-        json.push_str(&format!("  \"total_fee\": {},\n", result.total_fee));
+        json.push_str(&format!("  \"total_fee\": {},\n", result.total_fees));
         json.push_str(&format!("  \"warnings\": {},\n", result.warnings.len()));
         json.push_str(&format!("  \"errors\": {}\n", result.errors.len()));
         json.push_str("}");
@@ -95,13 +97,13 @@ impl Serializer {
         // In real implementation would use proper JSON serialization
         let mut json = String::new();
         json.push_str("{\n");
-        json.push_str(&format!("  \"parsing_time_us\": {},\n", metrics.parsing_time_us));
-        json.push_str(&format!("  \"validation_time_us\": {},\n", metrics.validation_time_us));
-        json.push_str(&format!("  \"proof_time_us\": {},\n", metrics.proof_time_us));
-        json.push_str(&format!("  \"total_time_us\": {},\n", metrics.total_time_us));
-        json.push_str(&format!("  \"memory_usage_bytes\": {},\n", metrics.memory_usage_bytes));
-        json.push_str(&format!("  \"riscv_cycles\": {},\n", metrics.riscv_cycles));
-        json.push_str(&format!("  \"proof_size_bytes\": {}\n", metrics.proof_size_bytes));
+        json.push_str(&format!("  \"parsing_time_ms\": {},\n", metrics.parsing_time_ms));
+        json.push_str(&format!("  \"validation_time_ms\": {},\n", metrics.validation_time_ms));
+        json.push_str(&format!("  \"signature_verification_time_ms\": {},\n", metrics.signature_verification_time_ms));
+        json.push_str(&format!("  \"zk_proof_verification_time_ms\": {},\n", metrics.zk_proof_verification_time_ms));
+        json.push_str(&format!("  \"state_update_time_ms\": {},\n", metrics.state_update_time_ms));
+        json.push_str(&format!("  \"total_time_ms\": {},\n", metrics.total_time_ms));
+        json.push_str(&format!("  \"memory_usage_bytes\": {}\n", metrics.memory_usage_bytes));
         json.push_str("}");
         Ok(json)
     }
@@ -112,9 +114,9 @@ impl Serializer {
         // For now, return a mock transaction
         Ok(ZcashTransaction {
             version: 4,
-            version_group_id: 0x892F2085,
+            version_group_id: Some(0x892F2085),
             lock_time: 0,
-            expiry_height: 0,
+            expiry_height: Some(0),
             transparent_inputs: Vec::new(),
             transparent_outputs: Vec::new(),
             sapling_bundle: None,
@@ -127,9 +129,9 @@ impl Serializer {
         // In real implementation would use proper binary serialization
         let mut data = Vec::new();
         data.extend_from_slice(&transaction.version.to_le_bytes());
-        data.extend_from_slice(&transaction.version_group_id.to_le_bytes());
+        data.extend_from_slice(&transaction.version_group_id.unwrap_or(0).to_le_bytes());
         data.extend_from_slice(&transaction.lock_time.to_le_bytes());
-        data.extend_from_slice(&transaction.expiry_height.to_le_bytes());
+        data.extend_from_slice(&transaction.expiry_height.unwrap_or(0).to_le_bytes());
         Ok(data)
     }
 
@@ -147,9 +149,9 @@ impl Serializer {
 
         Ok(ZcashTransaction {
             version,
-            version_group_id,
+            version_group_id: Some(version_group_id),
             lock_time,
-            expiry_height,
+            expiry_height: Some(expiry_height),
             transparent_inputs: Vec::new(),
             transparent_outputs: Vec::new(),
             sapling_bundle: None,
