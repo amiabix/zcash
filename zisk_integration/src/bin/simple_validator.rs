@@ -1,163 +1,64 @@
-//! Simple Zcash transaction validator for ZisK
+//! Simple Zcash Validator Binary
+//! 
+//! This binary demonstrates the basic functionality without ZisK dependencies.
 
-#![no_main]
-#![no_std]
+use zisk_zcash_validator::simple_main::{SimpleValidator, SimpleTransaction, TxInput, TxOutput};
 
-extern crate alloc;
-
-use zisk_zcash_validator::*;
-use ziskos::{read_input, set_output};
-use alloc::vec::Vec;
-
-/// Main entry point for simple transaction validation
-#[no_mangle]
-fn main() {
-    // Read input data
-    let input_data = read_input();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔍 Starting Simple Zcash Validator...");
     
     // Create validator
-    let validator = ZcashValidator::new(ValidationConfig::default());
+    let mut validator = SimpleValidator::new();
     
-    // Parse transaction (simplified)
-    let transaction = parse_simple_transaction(&input_data);
-    
-    // Validate transaction
-    let validation_result = match validator.validate_single(&transaction) {
-        Ok(result) => result,
-        Err(_) => {
-            // Output error and exit
-            set_output(0, 0); // Error flag
-            set_output(1, 1); // Error code
-            return;
+    // Add some initial UTXOs
+    validator.utxos.insert(
+        "initial_tx_1".to_string(),
+        TxOutput {
+            script_pubkey: "76a9141234567890abcdef1234567890abcdef12345678".to_string(),
+            value: 1000000, // 0.01 ZEC
         }
+    );
+    
+    // Create a test transaction
+    let tx = SimpleTransaction {
+        txid: "test_tx_001".to_string(),
+        inputs: vec![TxInput {
+            prev_txid: "initial_tx_1".to_string(),
+            vout: 0,
+            script_sig: "304402207f...".to_string(),
+            value: 1000000,
+        }],
+        outputs: vec![
+            TxOutput {
+                script_pubkey: "76a914abcdef1234567890abcdef1234567890abcdef12".to_string(),
+                value: 950000, // 0.0095 ZEC
+            },
+            TxOutput {
+                script_pubkey: "76a9141234567890abcdef1234567890abcdef12345678".to_string(),
+                value: 45000, // 0.00045 ZEC (change)
+            },
+        ],
+        value: 950000,
+        fee: 5000, // 0.00005 ZEC fee
     };
     
-    // Generate proof
-    let proof = match validator.generate_proof(&transaction) {
-        Ok(p) => p,
-        Err(_) => {
-            // Output error and exit
-            set_output(0, 0); // Error flag
-            set_output(1, 2); // Error code
-            return;
-        }
-    };
+    // Validate the transaction
+    let result = validator.validate_transaction(&tx);
     
-    // Output results
-    output_validation_result(&validation_result);
-    output_proof_info(&proof);
-}
-
-/// Parse simple transaction from input data
-fn parse_simple_transaction(data: &[u8]) -> ZcashTransaction {
-    if data.len() < 16 {
-        return create_default_transaction();
+    println!("📊 Validation Results:");
+    println!("   Valid: {}", result.is_valid);
+    println!("   Errors: {:?}", result.errors);
+    println!("   State Root: {}", result.state_root);
+    println!("   Timestamp: {}", result.timestamp);
+    
+    if result.is_valid {
+        println!("✅ Transaction validation successful!");
+        println!("🌳 New state root: {}", validator.get_state_root());
+    } else {
+        println!("❌ Transaction validation failed!");
     }
-
-    let version = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-    let version_group_id = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
-    let lock_time = u32::from_le_bytes([data[8], data[9], data[10], data[11]]);
-    let expiry_height = u32::from_le_bytes([data[12], data[13], data[14], data[15]]);
-
-    // Parse inputs and outputs (simplified)
-    let input_count = if data.len() > 16 { data[16] as usize } else { 0 };
-    let output_count = if data.len() > 17 { data[17] as usize } else { 0 };
-
-    let mut transparent_inputs = Vec::new();
-    let mut transparent_outputs = Vec::new();
-
-    // Parse inputs (simplified)
-    for i in 0..input_count {
-        if data.len() > 18 + i * 40 {
-            let mut prevout_hash = [0u8; 32];
-            prevout_hash.copy_from_slice(&data[18 + i * 40..18 + i * 40 + 32]);
-            
-            transparent_inputs.push(TransparentInput {
-                prevout_hash,
-                prevout_index: 0,
-                script_sig: Vec::new(),
-                sequence: 0xFFFFFFFF,
-            });
-        }
-    }
-
-    // Parse outputs (simplified)
-    for i in 0..output_count {
-        if data.len() > 18 + input_count * 40 + i * 40 {
-            let value = u64::from_le_bytes([
-                data[18 + input_count * 40 + i * 40],
-                data[18 + input_count * 40 + i * 40 + 1],
-                data[18 + input_count * 40 + i * 40 + 2],
-                data[18 + input_count * 40 + i * 40 + 3],
-                data[18 + input_count * 40 + i * 40 + 4],
-                data[18 + input_count * 40 + i * 40 + 5],
-                data[18 + input_count * 40 + i * 40 + 6],
-                data[18 + input_count * 40 + i * 40 + 7],
-            ]);
-            
-            transparent_outputs.push(TransparentOutput {
-                value,
-                script_pubkey: Vec::new(),
-            });
-        }
-    }
-
-    ZcashTransaction {
-        version,
-        version_group_id,
-        lock_time,
-        expiry_height,
-        transparent_inputs,
-        transparent_outputs,
-        sapling_bundle: None,
-        orchard_bundle: None,
-    }
-}
-
-/// Create default transaction
-fn create_default_transaction() -> ZcashTransaction {
-    ZcashTransaction {
-        version: 4,
-        version_group_id: 0x892F2085,
-        lock_time: 0,
-        expiry_height: 0,
-        transparent_inputs: Vec::new(),
-        transparent_outputs: Vec::new(),
-        sapling_bundle: None,
-        orchard_bundle: None,
-    }
-}
-
-/// Output validation result
-fn output_validation_result(result: &ValidationResult) {
-    set_output(0, result.is_valid as u32);
-    set_output(1, (result.total_input_value >> 32) as u32);
-    set_output(2, result.total_input_value as u32);
-    set_output(3, (result.total_output_value >> 32) as u32);
-    set_output(4, result.total_output_value as u32);
-    set_output(5, (result.fee >> 32) as u32);
-    set_output(6, result.fee as u32);
-    set_output(7, result.transparent_balance as u32);
-    set_output(8, result.sapling_balance as u32);
-    set_output(9, result.orchard_balance as u32);
-    set_output(10, result.nullifiers_valid as u32);
-    set_output(11, result.commitments_valid as u32);
-    set_output(12, result.warnings.len() as u32);
-    set_output(13, result.errors.len() as u32);
-}
-
-/// Output proof information
-fn output_proof_info(proof: &StarkProof) {
-    set_output(20, proof.metadata.riscv_cycles as u32);
-    set_output(21, (proof.metadata.riscv_cycles >> 32) as u32);
-    set_output(22, proof.metadata.memory_usage as u32);
-    set_output(23, (proof.metadata.memory_usage >> 32) as u32);
-    set_output(24, proof.metadata.proof_size as u32);
-    set_output(25, (proof.metadata.proof_size >> 32) as u32);
-    set_output(26, proof.metadata.compressed_size as u32);
-    set_output(27, (proof.metadata.compressed_size >> 32) as u32);
-    set_output(28, (proof.metadata.generation_time_us >> 32) as u32);
-    set_output(29, proof.metadata.generation_time_us as u32);
-    set_output(30, (proof.metadata.verification_time_us >> 32) as u32);
-    set_output(31, proof.metadata.verification_time_us as u32);
+    
+    println!("🎉 Simple validator completed successfully!");
+    
+    Ok(())
 }

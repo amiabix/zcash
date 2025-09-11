@@ -1,5 +1,8 @@
 //! RPC request handlers for ZisK-Zcash validator
 
+extern crate alloc;
+use alloc::string::ToString;
+
 use crate::core::*;
 use crate::error::*;
 use crate::rpc::types::*;

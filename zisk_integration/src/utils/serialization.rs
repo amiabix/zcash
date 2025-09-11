@@ -2,8 +2,10 @@
 
 use crate::core::*;
 use crate::error::*;
+use crate::parse_error;
 use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::format;
 
 /// Serializer
 pub struct Serializer {

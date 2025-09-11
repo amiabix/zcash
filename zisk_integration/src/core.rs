@@ -117,10 +117,12 @@ pub struct SaplingSpend {
     pub cv: Commitment,
     /// Anchor
     pub anchor: Anchor,
-    /// Proof
-    pub proof: Vec<u8>,
-    /// Spend description
-    pub spend_description: Vec<u8>,
+    /// Randomized verification key
+    pub rk: [u8; 32],
+    /// Groth16 proof (192 bytes)
+    pub zkproof: Vec<u8>,
+    /// Spend auth signature (64 bytes)
+    pub spend_auth_sig: Vec<u8>,
 }
 
 /// Sapling output
@@ -318,4 +320,43 @@ pub struct PerformanceMetrics {
     pub riscv_cycles: u64,
     /// Proof size in bytes
     pub proof_size_bytes: usize,
+}
+
+/// Complete Zcash transaction with all components
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompleteZcashTransaction {
+    /// Transaction version (4 or 5)
+    pub version: TransactionVersion,
+    /// Version group ID (for v5)
+    pub version_group_id: Option<VersionGroupId>,
+    /// Lock time
+    pub lock_time: LockTime,
+    /// Expiry height (for v5)
+    pub expiry_height: Option<ExpiryHeight>,
+    /// Transparent inputs
+    pub transparent_inputs: Vec<TransparentInput>,
+    /// Transparent outputs
+    pub transparent_outputs: Vec<TransparentOutput>,
+    /// Sapling bundle (if present)
+    pub sapling_bundle: Option<SaplingBundle>,
+    /// Orchard bundle (if present)
+    pub orchard_bundle: Option<OrchardBundle>,
+    /// Transaction hash (computed)
+    pub tx_hash: TxHash,
+}
+
+impl Default for CompleteZcashTransaction {
+    fn default() -> Self {
+        Self {
+            version: 4,
+            version_group_id: None,
+            lock_time: 0,
+            expiry_height: None,
+            transparent_inputs: Vec::new(),
+            transparent_outputs: Vec::new(),
+            sapling_bundle: None,
+            orchard_bundle: None,
+            tx_hash: [0u8; 32],
+        }
+    }
 }

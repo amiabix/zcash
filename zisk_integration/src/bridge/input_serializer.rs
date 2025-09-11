@@ -140,22 +140,14 @@ impl ZkvmInputSerializer {
         // Version (4 bytes LE)
         data.extend_from_slice(&tx.version.to_le_bytes());
         
-        // Version group ID (4 bytes LE, if present)
-        if let Some(vgid) = tx.version_group_id {
-            data.extend_from_slice(&vgid.to_le_bytes());
-        } else {
-            data.extend_from_slice(&0u32.to_le_bytes());
-        }
+        // Version group ID (4 bytes LE)
+        data.extend_from_slice(&tx.version_group_id.to_le_bytes());
         
         // Lock time (4 bytes LE)
         data.extend_from_slice(&tx.lock_time.to_le_bytes());
         
-        // Expiry height (4 bytes LE, if present)
-        if let Some(eh) = tx.expiry_height {
-            data.extend_from_slice(&eh.to_le_bytes());
-        } else {
-            data.extend_from_slice(&0u32.to_le_bytes());
-        }
+        // Expiry height (4 bytes LE)
+        data.extend_from_slice(&tx.expiry_height.to_le_bytes());
         
         // Transparent input count (4 bytes LE)
         data.extend_from_slice(&(tx.transparent_inputs.len() as u32).to_le_bytes());

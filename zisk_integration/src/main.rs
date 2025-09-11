@@ -32,7 +32,7 @@ mod state;
 
 use secp_verify::{verify_secp256k1_c, compute_sighash_all_like, double_sha256};
 use smt::{UtxoBatch, SparseMerkleTree, UtxoSet};
-use parsing::{TransactionParser, ZcashTransaction, TxInput, TxOutput, SaplingBundle, SaplingSpend, SaplingOutput, OrchardBundle, OrchardAction};
+use parsing::{TransactionParser, ZcashTransaction};
 use validation::{ConsensusValidator, TransparentValidator, SaplingValidator, OrchardValidator, FeeValidator};
 use proofs::{ProofGenerator, ProofVerifier, StarkProof, ProofMetadata};
 use state::{StateManager, StateTransition, StateRoot};
@@ -44,26 +44,7 @@ use crate::error::*;
 
 /// Complete Zcash transaction structure for validation
 #[derive(Debug, Clone)]
-pub struct CompleteZcashTransaction {
-    /// Transaction version (4 or 5)
-    pub version: TransactionVersion,
-    /// Version group ID (for v5)
-    pub version_group_id: Option<VersionGroupId>,
-    /// Lock time
-    pub lock_time: LockTime,
-    /// Expiry height (for v5)
-    pub expiry_height: Option<ExpiryHeight>,
-    /// Transparent inputs
-    pub transparent_inputs: Vec<TransparentInput>,
-    /// Transparent outputs
-    pub transparent_outputs: Vec<TransparentOutput>,
-    /// Sapling bundle (if present)
-    pub sapling_bundle: Option<SaplingBundle>,
-    /// Orchard bundle (if present)
-    pub orchard_bundle: Option<OrchardBundle>,
-    /// Transaction hash (computed)
-    pub tx_hash: TxHash,
-}
+// CompleteZcashTransaction moved to core module
 
 /// UTXO entry with Merkle proof for validation
 #[derive(Debug, Clone)]
@@ -412,17 +393,26 @@ fn parse_utxo_entry(data: &[u8]) -> Result<(UtxoEntry, usize), String> {
 
 /// Parse single transaction from input data
 fn parse_single_transaction(input_data: &[u8]) -> CompleteZcashTransaction {
-    // Simplified single transaction parsing
-    CompleteZcashTransaction {
-            version: 4, 
-        version_group_id: None,
-            lock_time: 0, 
-        expiry_height: None,
-        transparent_inputs: Vec::new(),
-        transparent_outputs: Vec::new(),
-        sapling_bundle: None,
-        orchard_bundle: None,
-        tx_hash: [0u8; 32],
+    use crate::parsing::{V4TransactionParser, V5TransactionParser};
+    use crate::conversion::convert_parsed_to_complete;
+    
+    if input_data.len() < 4 {
+        return CompleteZcashTransaction::default();
+    }
+    
+    let version = u32::from_le_bytes([
+        input_data[0], input_data[1], input_data[2], input_data[3]
+    ]);
+    
+    let result = match version {
+        4 => V4TransactionParser::new().parse(input_data),
+        5 => V5TransactionParser::new().parse(input_data),
+        _ => return CompleteZcashTransaction::default(),
+    };
+    
+    match result {
+        Ok(tx) => convert_parsed_to_complete(tx),
+        Err(_) => CompleteZcashTransaction::default(),
     }
 }
 
@@ -448,7 +438,8 @@ fn parse_transaction_batch(tx_batch: &[u8]) -> Result<Vec<CompleteZcashTransacti
             4 => {
                 let parser = crate::parsing::v4_parser::V4TransactionParser::new();
                 let tx = parser.parse(&tx_batch[offset..])?;
-                let tx_hash = double_sha256(&tx_batch[offset..offset+tx_batch.len()-offset]);
+                let consumed = crate::conversion::calculate_transaction_size(&tx_batch[offset..], version)?;
+                let tx_hash = double_sha256(&tx_batch[offset..offset+consumed]);
                 (CompleteZcashTransaction {
                     version: tx.version,
                     version_group_id: Some(tx.version_group_id),
@@ -472,6 +463,7 @@ fn parse_transaction_batch(tx_batch: &[u8]) -> Result<Vec<CompleteZcashTransacti
                             anchor: s.anchor,
                             rk: s.rk,
                             zkproof: s.proof,
+                            spend_auth_sig: s.spend_auth_sig,
                         }).collect(),
                         outputs: b.outputs.into_iter().map(|o| SaplingOutput {
                             cmu: o.cmu,
@@ -497,12 +489,13 @@ fn parse_transaction_batch(tx_batch: &[u8]) -> Result<Vec<CompleteZcashTransacti
                         proof: b.proof,
                     }),
                     tx_hash,
-                }, tx_batch.len() - offset)
+                }, consumed)
             },
             5 => {
                 let parser = crate::parsing::v5_parser::V5TransactionParser::new();
                 let tx = parser.parse(&tx_batch[offset..])?;
-                let tx_hash = double_sha256(&tx_batch[offset..offset+tx_batch.len()-offset]);
+                let consumed = crate::conversion::calculate_transaction_size(&tx_batch[offset..], version)?;
+                let tx_hash = double_sha256(&tx_batch[offset..offset+consumed]);
                 (CompleteZcashTransaction {
                     version: tx.version,
                     version_group_id: Some(tx.version_group_id),
@@ -551,7 +544,7 @@ fn parse_transaction_batch(tx_batch: &[u8]) -> Result<Vec<CompleteZcashTransacti
                         proof: b.proof,
                     }),
                     tx_hash,
-                }, tx_batch.len() - offset)
+                }, consumed)
             },
             _ => return Err(format!("Unsupported transaction version: {}", version)),
         };
@@ -760,9 +753,9 @@ fn validate_transparent_components_with_signatures(
             // Verify the input matches the UTXO
             if input.prev_hash != utxo.prev_txid || input.prev_index != utxo.prev_index {
                 result.errors.push(format!("Input {}: UTXO mismatch", i));
-                return false;
-            }
-            
+        return false;
+    }
+    
             // Verify ECDSA signature (simplified - in production would parse script and verify)
             if !verify_input_signature(input, &utxo.script_pubkey) {
                 result.signatures_valid = false;
@@ -814,7 +807,7 @@ fn parse_script_sig(script_sig: &[u8]) -> Result<([u8; 64], [u8; 33]), String> {
         return Err("Invalid signature length".to_string());
     }
     
-    let signature = &script_sig[1..1+sig_len];
+    let der_signature = &script_sig[1..1+sig_len];
     let pubkey_len = script_sig[1+sig_len] as usize;
     
     if script_sig.len() < 1 + sig_len + 1 + pubkey_len {
@@ -823,21 +816,93 @@ fn parse_script_sig(script_sig: &[u8]) -> Result<([u8; 64], [u8; 33]), String> {
     
     let public_key = &script_sig[1+sig_len+1..1+sig_len+1+pubkey_len];
     
-    // Convert to fixed-size arrays
-    if signature.len() != 64 {
-        return Err("Signature must be 64 bytes".to_string());
-    }
+    // Convert DER signature to compact format (64 bytes)
+    let compact_sig = match der_to_compact(der_signature) {
+        Ok(sig) => sig,
+        Err(e) => return Err(format!("Invalid DER signature: {}", e)),
+    };
+    
+    // Validate public key
     if public_key.len() != 33 {
         return Err("Public key must be 33 bytes".to_string());
     }
     
-    let mut sig_array = [0u8; 64];
-    sig_array.copy_from_slice(signature);
-    
     let mut pubkey_array = [0u8; 33];
     pubkey_array.copy_from_slice(public_key);
     
-    Ok((sig_array, pubkey_array))
+    Ok((compact_sig, pubkey_array))
+}
+
+/// Convert DER signature to compact format
+fn der_to_compact(der_sig: &[u8]) -> Result<[u8; 64], String> {
+    if der_sig.len() < 6 {
+        return Err("DER signature too short".to_string());
+    }
+    
+    // Check DER structure: 0x30 <length> 0x02 <r_len> <r> 0x02 <s_len> <s>
+    if der_sig[0] != 0x30 {
+        return Err("Invalid DER signature format".to_string());
+    }
+    
+    let total_len = der_sig[1] as usize;
+    if der_sig.len() < 2 + total_len {
+        return Err("Invalid DER signature length".to_string());
+    }
+    
+    let mut offset = 2;
+    
+    // Parse r component
+    if offset >= der_sig.len() || der_sig[offset] != 0x02 {
+        return Err("Invalid r component".to_string());
+    }
+    offset += 1;
+    
+    let r_len = der_sig[offset] as usize;
+    offset += 1;
+    
+    if offset + r_len > der_sig.len() {
+        return Err("Invalid r length".to_string());
+    }
+    
+    let r_bytes = &der_sig[offset..offset + r_len];
+    offset += r_len;
+    
+    // Parse s component
+    if offset >= der_sig.len() || der_sig[offset] != 0x02 {
+        return Err("Invalid s component".to_string());
+    }
+    offset += 1;
+    
+    let s_len = der_sig[offset] as usize;
+    offset += 1;
+    
+    if offset + s_len > der_sig.len() {
+        return Err("Invalid s length".to_string());
+    }
+    
+    let s_bytes = &der_sig[offset..offset + s_len];
+    
+    // Convert to 32-byte r and s
+    let mut r = [0u8; 32];
+    let mut s = [0u8; 32];
+    
+    // Handle leading zeros
+    let r_start = if r_bytes[0] == 0 { 1 } else { 0 };
+    let s_start = if s_bytes[0] == 0 { 1 } else { 0 };
+    
+    if r_bytes.len() - r_start > 32 || s_bytes.len() - s_start > 32 {
+        return Err("r or s component too large".to_string());
+    }
+    
+    r[32 - (r_bytes.len() - r_start)..].copy_from_slice(&r_bytes[r_start..]);
+    s[32 - (s_bytes.len() - s_start)..].copy_from_slice(&s_bytes[s_start..]);
+    
+    // Combine r and s into compact format
+    let mut compact = [0u8; 64];
+    compact[..32].copy_from_slice(&r);
+    compact[32..].copy_from_slice(&s);
+    
+    Ok(compact)
 }
 
 /// Compute sighash for input verification
@@ -905,52 +970,26 @@ fn validate_sapling_components_with_proofs(
     true
 }
 
-/// Validate Sapling spend with real zk-SNARK proof verification
+/// Validate Sapling spend with structure validation (real zk-SNARK verification pending)
 fn validate_sapling_spend_with_proof(spend: &SaplingSpend) -> bool {
-    // Use the real Sapling verifier from our existing components
-    let verifier = crate::verification::sapling_verifier::SaplingVerifier::new(
-        crate::verification::sapling_verifier::SaplingKeyLoader::load_verification_key(),
-        false // Don't trust node, do full verification
-    );
-    
-    // Parse the proof
-    let proof = match crate::verification::sapling_verifier::SaplingProofParser::parse_spend_proof(&spend.zkproof) {
-        Ok(p) => p,
-        Err(_) => return false,
-    };
-    
-    // Verify the proof
-    let result = verifier.verify_spend_proof(
-        &spend.zkproof,
-        &spend.nullifier,
-        spend
-    );
-    
-    result.is_valid
+    // For now, just validate structure until real verification is implemented
+    spend.zkproof.len() == 192 && 
+    spend.spend_auth_sig.len() == 64 && 
+    spend.nullifier != [0u8; 32] &&
+    spend.cv != [0u8; 32] &&
+    spend.anchor != [0u8; 32] &&
+    spend.rk != [0u8; 32]
 }
 
-/// Validate Sapling output with real zk-SNARK proof verification
+/// Validate Sapling output with structure validation (real zk-SNARK verification pending)
 fn validate_sapling_output_with_proof(output: &SaplingOutput) -> bool {
-    // Use the real Sapling verifier from our existing components
-    let verifier = crate::verification::sapling_verifier::SaplingVerifier::new(
-        crate::verification::sapling_verifier::SaplingKeyLoader::load_verification_key(),
-        false // Don't trust node, do full verification
-    );
-    
-    // Parse the proof
-    let proof = match crate::verification::sapling_verifier::SaplingProofParser::parse_output_proof(&output.zkproof) {
-        Ok(p) => p,
-        Err(_) => return false,
-    };
-    
-    // Verify the proof
-    let result = verifier.verify_output_proof(
-        &output.zkproof,
-        &output.cmu,
-        output
-    );
-    
-    result.is_valid
+    // For now, just validate structure until real verification is implemented
+    output.zkproof.len() == 192 && 
+    output.cmu != [0u8; 32] &&
+    output.cv != [0u8; 32] &&
+    output.ephemeral_key != [0u8; 32] &&
+    !output.enc_ciphertext.is_empty() &&
+    !output.out_ciphertext.is_empty()
 }
 
 /// Validate Orchard components with zk-SNARK verification

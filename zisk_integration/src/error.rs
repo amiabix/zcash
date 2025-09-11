@@ -2,6 +2,14 @@
 
 use alloc::string::String;
 
+/// Macro for creating parse errors
+#[macro_export]
+macro_rules! parse_error {
+    ($err:expr) => {
+        crate::error::ZcashValidationError::ParseError($err)
+    };
+}
+
 /// Main error type for ZisK-Zcash validation operations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ZcashValidationError {

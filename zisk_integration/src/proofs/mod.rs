@@ -2,8 +2,9 @@
 //! 
 //! This module provides STARK proof generation and verification for Zcash transactions.
 
+extern crate alloc;
 use alloc::vec::Vec;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 
 /// STARK proof structure
 #[derive(Debug, Clone)]

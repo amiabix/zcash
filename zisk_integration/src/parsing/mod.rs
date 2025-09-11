@@ -3,7 +3,7 @@
 //! This module provides comprehensive parsing for Zcash transactions,
 //! including v4, v5, and all component types.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use alloc::string::String;
 
 /// Zcash transaction structure
@@ -50,7 +50,8 @@ pub struct SaplingSpend {
     pub cv: [u8; 32],
     pub anchor: [u8; 32],
     pub rk: [u8; 32],
-    pub zkproof: Vec<u8>,
+    pub proof: Vec<u8>,
+    pub spend_auth_sig: Vec<u8>,
 }
 
 /// Sapling output

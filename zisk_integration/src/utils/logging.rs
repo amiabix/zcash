@@ -1,6 +1,8 @@
 //! Logging utilities
 
-use alloc::string::String;
+extern crate alloc;
+use alloc::string::{String, ToString};
+use alloc::format;
 use alloc::vec::Vec;
 
 /// Log level

@@ -6,7 +6,7 @@
 use crate::core::*;
 use crate::error::*;
 use crate::bridge::{NodeBridge, UtxoProvider};
-use crate::verification::sapling_verifier::SaplingVerifier;
+// use crate::verification::sapling_verifier::SaplingVerifier; // Temporarily disabled
 use crate::state::state_synchronizer::StateSynchronizer;
 use alloc::vec::Vec;
 use alloc::string::String;
@@ -283,5 +283,5 @@ impl ValidatorFactory {
 
 // Re-export types for convenience
 pub use crate::bridge::node_bridge::{NodeConfig, NodeUtxo, NodeSaplingNote, NodeOrchardNote};
-pub use crate::verification::sapling_verifier::{SaplingVerificationResult, SaplingKeyLoader, SaplingProofParser};
+// pub use crate::verification::sapling_verifier::{SaplingVerificationResult, SaplingKeyLoader, SaplingProofParser}; // Temporarily disabled
 pub use crate::state::state_synchronizer::{StateSyncResult, StateRoot, StateChange};

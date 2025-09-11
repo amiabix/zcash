@@ -28,25 +28,31 @@ pub mod proofs;
 // State management
 pub mod state;
 
-// Bridge modules for node integration
-pub mod bridge;
+// Bridge modules for node integration - temporarily disabled for no_std
+// pub mod bridge;
 
-// RPC modules for external interfaces
-pub mod rpc;
+// RPC modules for external interfaces - temporarily disabled for no_std
+// pub mod rpc;
 
-// Verification modules
-pub mod verification;
+// Verification modules - temporarily disabled
+// pub mod verification;
 
-// Integration modules
-pub mod integration;
+// Integration modules - temporarily disabled  
+// pub mod integration;
 
 // Utility modules
 pub mod utils;
+
+// Conversion modules
+pub mod conversion;
 
 // Legacy modules (from original implementation)
 pub mod secp_verify;
 pub mod utxo_validation;
 pub mod smt;
+
+// Simplified modules for testing
+// pub mod simple_main; // This is a std binary, not part of the no_std library
 
 pub use core::*;
 pub use error::*;

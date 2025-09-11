@@ -1,0 +1,13 @@
+[package]
+name = "zisk-demo"
+version = "0.1.0"
+edition = "2021"
+authors = ["ZisK-Zcash Integration Team"]
+description = "Simple demo for ZisK-Zcash integration testing"
+
+[[bin]]
+name = "simple_demo"
+path = "src/main.rs"
+
+[dependencies]
+# No dependencies needed for the simple demo

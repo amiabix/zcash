@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  zcashd:
+    build: .
+    container_name: zcashd
+    command: >
+      zcashd -regtest
+             -rpcuser=test
+             -rpcpassword=test
+             -rpcallowip=0.0.0.0/0
+             -rpcbind=0.0.0.0:8232
+             -txindex=1
+             -listen=1
+             -printtoconsole
+    ports:
+      - "8232:8232"     # RPC
+      - "18232:18232"   # P2P (regtest)
+    volumes:
+      - zcashd_data:/root/.zcash
+    healthcheck:
+      test: ["CMD", "zcash-cli", "-rpcuser=test", "-rpcpassword=test", "-regtest", "getblockcount"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zkvm-runner:
+    build:
+      context: ./zisk_integration
+      dockerfile: Dockerfile
+    container_name: zkvm-runner
+    depends_on:
+      zcashd:
+        condition: service_healthy
+    environment:
+      - RUST_LOG=info
+      - ZCASH_RPC_URL=http://zcashd:8232
+      - ZCASH_RPC_USER=test
+      - ZCASH_RPC_PASSWORD=test
+    volumes:
+      - ./zisk_integration:/app
+    working_dir: /app
+    command: cargo run --release
+
+volumes:
+  zcashd_data:

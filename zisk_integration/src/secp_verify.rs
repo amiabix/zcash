@@ -1,4 +1,7 @@
 // secp_verify.rs
+extern crate alloc;
+use alloc::{vec, vec::Vec};
+
 use secp256k1::{Secp256k1, Message, PublicKey, ecdsa::Signature};
 use sha2::{Sha256, Digest};
 

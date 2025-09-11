@@ -4,7 +4,9 @@
 //! UTXO set management and state root computation.
 
 use crate::secp_verify::double_sha256;
-use std::collections::BTreeMap;
+extern crate alloc;
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 
 /// Sparse Merkle Tree for UTXO set management
 pub struct SparseMerkleTree {

@@ -1,5 +1,8 @@
 //! HTTP server for ZisK-Zcash validator RPC
 
+extern crate alloc;
+use alloc::string::ToString;
+
 use crate::rpc::handlers::RpcHandler;
 use crate::rpc::types::*;
 use crate::bridge::node_bridge::NodeConfig;

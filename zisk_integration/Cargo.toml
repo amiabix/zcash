@@ -41,7 +41,7 @@ path = "src/bin/static_validator.rs"
 
 [dependencies]
 # Core dependencies
-ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git" }
+# ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git" }  # Temporarily disabled for ARM64 compatibility
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
@@ -89,7 +89,3 @@ panic = "abort"
 opt-level = 3
 lto = true
 codegen-units = 1
-
-[[bench]]
-name = "validation_benchmarks"
-harness = false

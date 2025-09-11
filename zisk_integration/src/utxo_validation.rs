@@ -2,6 +2,9 @@
 //! 
 //! This module provides UTXO validation functionality with Merkle proofs.
 
+extern crate alloc;
+use alloc::vec::Vec;
+
 use crate::secp_verify::double_sha256;
 use sha2::{Sha256, Digest};
 

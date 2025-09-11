@@ -233,47 +233,43 @@ impl V4TransactionParser {
 
     /// Parse Sapling spend
     fn parse_sapling_spend(&self, cursor: &mut Cursor<&[u8]>) -> ZcashResult<SaplingSpend> {
-        // Parse nullifier
+        // Parse nullifier (32 bytes)
         let mut nullifier = [0u8; 32];
         cursor.read_exact(&mut nullifier)
             .map_err(|_| parse_error!(ParseError::InvalidNullifier))?;
 
-        // Parse value commitment
+        // Parse value commitment (32 bytes)
         let mut cv = [0u8; 32];
         cursor.read_exact(&mut cv)
             .map_err(|_| parse_error!(ParseError::InvalidCommitment))?;
 
-        // Parse anchor
+        // Parse anchor (32 bytes)
         let mut anchor = [0u8; 32];
         cursor.read_exact(&mut anchor)
             .map_err(|_| parse_error!(ParseError::MalformedData))?;
 
-        // Parse proof (simplified - in real implementation would parse actual proof)
-        let proof_len = cursor.read_u32::<LittleEndian>()
-            .map_err(|_| parse_error!(ParseError::MalformedData))? as usize;
-        
-        let mut proof = vec![0u8; proof_len];
-        if proof_len > 0 {
-            cursor.read_exact(&mut proof)
-                .map_err(|_| parse_error!(ParseError::MalformedData))?;
-        }
+        // Parse randomized verification key (32 bytes)
+        let mut rk = [0u8; 32];
+        cursor.read_exact(&mut rk)
+            .map_err(|_| parse_error!(ParseError::MalformedData))?;
 
-        // Parse spend description (simplified)
-        let spend_desc_len = cursor.read_u32::<LittleEndian>()
-            .map_err(|_| parse_error!(ParseError::MalformedData))? as usize;
-        
-        let mut spend_description = vec![0u8; spend_desc_len];
-        if spend_desc_len > 0 {
-            cursor.read_exact(&mut spend_description)
-                .map_err(|_| parse_error!(ParseError::MalformedData))?;
-        }
+        // Parse Groth16 proof (FIXED 192 bytes)
+        let mut zkproof = [0u8; 192];
+        cursor.read_exact(&mut zkproof)
+            .map_err(|_| parse_error!(ParseError::MalformedData))?;
+
+        // Parse spend auth signature (FIXED 64 bytes)
+        let mut spend_auth_sig = [0u8; 64];
+        cursor.read_exact(&mut spend_auth_sig)
+            .map_err(|_| parse_error!(ParseError::InvalidSignature))?;
 
         Ok(SaplingSpend {
             nullifier,
             cv,
             anchor,
-            proof,
-            spend_description,
+            rk,
+            proof: zkproof.to_vec(),
+            spend_auth_sig: spend_auth_sig.to_vec(),
         })
     }
 

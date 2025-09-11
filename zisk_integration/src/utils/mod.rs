@@ -4,6 +4,7 @@ use crate::core::*;
 use crate::error::*;
 use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::format;
 
 mod performance;
 mod logging;
@@ -159,7 +160,7 @@ impl Utils {
     /// Calculate virtual size
     pub fn calculate_virtual_size(&self, transaction: &ZcashTransaction) -> usize {
         let weight = self.calculate_weight(transaction);
-        (weight + 3) / 4 // Convert weight to virtual size
+        ((weight + 3) / 4) as usize // Convert weight to virtual size
     }
 
     /// Calculate fee rate

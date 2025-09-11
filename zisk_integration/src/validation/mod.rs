@@ -2,8 +2,9 @@
 //! 
 //! This module provides comprehensive validation for all Zcash transaction components.
 
+extern crate alloc;
 use alloc::vec::Vec;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 
 /// Consensus validator
 pub struct ConsensusValidator;

@@ -1,8 +1,11 @@
 //! Performance profiling utilities
 
+extern crate alloc;
+use alloc::string::{String, ToString};
+use alloc::format;
+
 use crate::core::*;
 use alloc::vec::Vec;
-use alloc::string::String;
 
 /// Performance profiler
 pub struct PerformanceProfiler {

@@ -4,7 +4,7 @@
 //! transaction batches and receive validation results and STARK proofs.
 
 pub mod http_server;
-pub mod grpc_server;
+// pub mod grpc_server; // Temporarily disabled
 pub mod handlers;
 pub mod serialization;
 pub mod types;

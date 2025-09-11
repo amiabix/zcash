@@ -1,0 +1,50 @@
+# ZisK Integration Dockerfile
+# Builds only the ZisK zkVM integration and RPC server
+
+FROM ubuntu:22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUST_VERSION=1.75.0
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        curl ca-certificates build-essential \
+        python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $RUST_VERSION
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Copy only the zisk_integration directory
+COPY zisk_integration/ /app/zisk_integration
+
+# Set working directory
+WORKDIR /app/zisk_integration
+
+# Build the ZisK integration
+RUN cargo build --release --features host,rpc_server
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "🌐 Starting ZisK RPC server..."\n\
+echo "📡 Connecting to Zcash node at: ${ZCASH_RPC_URL:-http://zcash-node:8232}"\n\
+echo "🔑 Using credentials: ${ZCASH_RPC_USER:-test}"\n\
+\n\
+# Start RPC server\n\
+exec cargo run --release --features rpc_server --example rpc_server\n\
+' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
+
+# Expose RPC port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Start RPC server
+CMD ["/usr/local/bin/start.sh"]
